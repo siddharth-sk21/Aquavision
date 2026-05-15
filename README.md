@@ -74,27 +74,31 @@ Final Borewell Advisory
 🌊 AQUAVISION ANALYSIS COMPLETE
 ==================================================
 📍 Location: Kuttanad (9.3452°N, 76.4357°E)
-📏 Buffer: 120m radius
+📏 Buffer:   120m radius
 🛰️ Readings: NDMI: 0.229  NDWI: -0.471  NDVI: 0.499  Elev: 0m  Slope: 2.1°
-
-🔵 Verdict: HIGH
+--------------------------------------------------
+🔵 Verdict:   HIGH
 📈 Confidence: 79.9%
-🤖 RF Model: Yes
-✨ AI Layer: Gemini
-
+🔀 Agreement: ✅ Agreed
+🤖 RF Model:  Yes
+✨ AI Layer:  Gemini
+--------------------------------------------------
 📋 Summary:
-Groundwater potential at this location is high.
+This location shows a high potential for accessible groundwater.
 
 🛰️ Satellite Interpretation:
-• High soil moisture indicates strong subsurface moisture retention.
-• Dense vegetation suggests reliable moisture availability.
-• Flat terrain supports groundwater infiltration and recharge.
+   • Moisture: High soil moisture (NDMI: 0.229) indicates good subsurface moisture retention.
+   • Vegetation: Dense vegetation (NDVI: 0.499) signals consistent moisture availability.
+   • Terrain: Low elevation (0m) and flat slope (2.1°) favor high infiltration and groundwater recharge.
 
 💡 Advice:
-Consider moderate-depth borewell exploration after local verification.
+Consider digging a well here for irrigation.
 
 ⚠️ Risk:
-Groundwater yield may still vary seasonally despite favorable recharge conditions.
+Water quality might require testing before use.
+
+📌 Final Recommendation:
+High groundwater potential detected. Borewell planning is reasonable after local verification..
 ```
 
 ---

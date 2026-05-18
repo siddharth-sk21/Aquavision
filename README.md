@@ -162,7 +162,7 @@ AquaVision/
 ## 1. Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/AquaVision.git
+git clone https://github.com/siddharth-sk21/AquaVision.git
 
 cd AquaVision
 ```

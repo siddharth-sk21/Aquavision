@@ -158,6 +158,16 @@ AquaVision/
 ---
 
 # 🚀 Installation & Setup
+# Prerequisites:
+- Google Earth Engine account
+- Gemini API key
+- Earth Engine authentication
+
+# Setup:
+1. Create .env
+2. Add API keys
+3. Run earthengine authenticate
+4. Start application
 
 ## 1. Clone Repository
 

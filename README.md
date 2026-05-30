@@ -106,7 +106,7 @@ High groundwater potential detected. Borewell planning is reasonable after local
 MAP:
 
 
-![Groundwater Map](assets/image.png)
+![Groundwater Map](assets/kuttanad.png)
 ---
 
 # ⚙️ Tech Stack

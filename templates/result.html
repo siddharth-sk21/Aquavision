@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>AquaVision Report | {{ location_name }}</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="theme-ocean result-page">
+	<main class="page-shell results-layout">
+		<section class="result-summary glass">
+			<p class="eyebrow">Borewell Advisory Report</p>
+			<h1>{{ location_name }}</h1>
+
+			{% set verdict = classification.get('verdict', 'UNKNOWN') %}
+			{% set confidence = classification.get('ml_confidence') %}
+
+			<div class="verdict-banner verdict-{{ verdict|lower }}">
+				<div class="verdict-line">
+					<span class="emoji">{{ classification.get('emoji', '⚪') }}</span>
+					<span class="label">{{ verdict }} POTENTIAL</span>
+				</div>
+			</div>
+
+			<div class="quick-grid">
+				<div>
+					<span class="k">Confidence</span>
+					<span class="v">{{ confidence if confidence is not none else 'N/A' }}{% if confidence is not none %}%{% endif %}</span>
+				</div>
+				<div>
+					<span class="k">Buffer</span>
+					<span class="v">{{ buffer_meters }}m</span>
+				</div>
+				<div>
+					<span class="k">Latitude</span>
+					<span class="v">{{ '%.6f'|format(lat) }}</span>
+				</div>
+				<div>
+					<span class="k">Longitude</span>
+					<span class="v">{{ '%.6f'|format(lon) }}</span>
+				</div>
+			</div>
+
+			<div class="narrative-block">
+				<h2>Summary</h2>
+				<p>{{ classification.get('summary') or 'Summary not available for this run.' }}</p>
+			</div>
+
+			<div class="narrative-block">
+				<h2>Reasons</h2>
+				{% set reasons = classification.get('reasons', []) %}
+				{% if reasons %}
+				<ul>
+					{% for reason in reasons %}
+					<li>{{ reason }}</li>
+					{% endfor %}
+				</ul>
+				{% else %}
+				<p>No detailed reasons were generated.</p>
+				{% endif %}
+			</div>
+
+			</section>
+
+			<section class="result-map glass">
+				<div class="map-header">
+					<h2>Groundwater Moisture Map</h2>
+					<p>Generated using satellite NDMI analysis</p>
+				</div>
+
+				<div class="map-visual-shell full">
+					{% if map_url %}
+					<figure class="map-figure">
+						<img src="{{ map_url }}" alt="Generated NDMI map for {{ location_name }}">
+					</figure>
+					{% else %}
+					<div class="alert error">
+						{% if map_payload.get('error') %}
+							Map generation failed: {{ map_payload.get('error') }}
+						{% else %}
+							Map is unavailable for this run.
+						{% endif %}
+					</div>
+					{% endif %}
+				</div>
+
+				<!-- Satellite features: horizontal metrics bar below the map -->
+				<div class="feature-bar">
+					<div class="feature-metrics">
+						<div class="feature-item"><span class="label">NDMI</span><strong class="value">{{ '%.3f'|format(features.get('NDMI', 0.0)) if features.get('NDMI') is not none else 'N/A' }}</strong></div>
+						<div class="feature-item"><span class="label">NDWI</span><strong class="value">{{ '%.3f'|format(features.get('NDWI', 0.0)) if features.get('NDWI') is not none else 'N/A' }}</strong></div>
+						<div class="feature-item"><span class="label">NDVI</span><strong class="value">{{ '%.3f'|format(features.get('NDVI', 0.0)) if features.get('NDVI') is not none else 'N/A' }}</strong></div>
+						<div class="feature-item"><span class="label">Elevation</span><strong class="value">{{ '%.0f m'|format(features.get('elevation', 0.0)) if features.get('elevation') is not none else 'N/A' }}</strong></div>
+						<div class="feature-item"><span class="label">Slope</span><strong class="value">{{ '%.1f°'|format(features.get('slope', 0.0)) if features.get('slope') is not none else 'N/A' }}</strong></div>
+					</div>
+				</div>
+			</section>
+
+			<div class="two-col-narrative action-grid">
+				<article class="narrative-block compact-card">
+					<h2>Advice</h2>
+					<p>{{ classification.get('advice') or 'No advice generated.' }}</p>
+				</article>
+				<article class="narrative-block compact-card">
+					<h2>Risk</h2>
+					<p>{{ classification.get('risk') or 'No risk notes generated.' }}</p>
+				</article>
+			</div>
+
+			<div class="actions-row">
+				<a href="{{ url_for('home') }}" class="btn btn-secondary">Analyze Another Location</a>
+			</div>
+	</main>
+</body>
+</html>

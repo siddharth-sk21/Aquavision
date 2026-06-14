@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>AquaVision | Geo-AI Groundwater Advisory</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="theme-ocean">
+	<main class="page-shell">
+		<section class="hero-panel glass">
+			<h1>AquaVision Borewell Advisor</h1>
+			<p class="hero-copy">
+				Search your village or farm area, click the exact drilling point, and run satellite-driven groundwater advisory in one flow.
+			</p>
+			<div class="hero-stats">
+				<div>
+					<span class="stat-label">Engine</span>
+					<span class="stat-value">Geo-AI + Rules + RF</span>
+				</div>
+				<div>
+					<span class="stat-label">Satellite Stack</span>
+					<span class="stat-value">NDVI, NDWI, NDMI, DEM</span>
+				</div>
+			</div>
+		</section>
+
+		<section class="control-panel glass">
+			<form id="analysisForm" action="{{ url_for('analyze') }}" method="post" novalidate>
+				{% if error_message %}
+				<div class="alert error">{{ error_message }}</div>
+				{% endif %}
+
+				<div class="field-row">
+					<label for="location_name">Village / Farm Area</label>
+					<input
+						id="location_name"
+						name="location_name"
+						type="text"
+						placeholder="Example: Kuttanad, Kerala"
+						value="{{ previous_location_name if previous_location_name else '' }}"
+						required
+					>
+				</div>
+
+				<div class="inline-actions">
+					<button id="searchBtn" class="btn btn-secondary" type="button">Search Place</button>
+					<button id="myLocationBtn" class="btn btn-ghost" type="button">Use My Location</button>
+				</div>
+
+				<div id="searchStatus" class="status-note" aria-live="polite"></div>
+
+				<div class="field-row">
+					<label for="size_option">Farm Size</label>
+					<select id="size_option" name="size_option">
+						<option value="1" {% if previous_size_option == '1' %}selected{% endif %}>Small (1-2 acres)</option>
+						<option value="2" {% if previous_size_option == '2' %}selected{% endif %}>Medium (2-5 acres)</option>
+						<option value="3" {% if previous_size_option == '3' %}selected{% endif %}>Large (5+ acres)</option>
+					</select>
+				</div>
+
+				<div class="coord-grid">
+					<div class="field-row compact">
+						<label for="selected_lat">Selected Latitude</label>
+						<input id="selected_lat" name="selected_lat" type="text" readonly placeholder="Click on map">
+					</div>
+					<div class="field-row compact">
+						<label for="selected_lon">Selected Longitude</label>
+						<input id="selected_lon" name="selected_lon" type="text" readonly placeholder="Click on map">
+					</div>
+				</div>
+
+				<button id="analyzeBtn" class="btn btn-primary" type="submit">Analyze Groundwater</button>
+			</form>
+		</section>
+
+		<section class="map-panel glass">
+			<div class="map-header">
+				<h2>Farm Point Selection Map</h2>
+				<p>Search for a village or farm area, then click the exact borewell location on the satellite map.</p>
+			</div>
+			<div id="map" class="leaflet-map" aria-label="AquaVision location map"></div>
+		</section>
+	</main>
+
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+	<script>
+		// Base layers
+		const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+			attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+			maxZoom: 19,
+		});
+
+		const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+			attribution: "&copy; OpenStreetMap contributors",
+			maxZoom: 19,
+		});
+
+		// initialize map with satellite as the default layer
+		const map = L.map("map", { zoomControl: true, layers: [satelliteLayer] }).setView([20.5937, 78.9629], 5);
+
+		// add layer control (Satellite / Street)
+		const baseMaps = {
+			'🛰 Satellite': satelliteLayer,
+			'🗺 Street': streetLayer,
+		};
+		L.control.layers(baseMaps, {}, { position: 'topright' }).addTo(map);
+
+		const selectedLatInput = document.getElementById("selected_lat");
+		const selectedLonInput = document.getElementById("selected_lon");
+		const searchInput = document.getElementById("location_name");
+		const searchStatus = document.getElementById("searchStatus");
+		const searchBtn = document.getElementById("searchBtn");
+		const myLocationBtn = document.getElementById("myLocationBtn");
+		const analysisForm = document.getElementById("analysisForm");
+
+		let selectedMarker = null;
+		let searchMarker = null;
+
+		function setStatus(message, type = "info") {
+			searchStatus.textContent = message;
+			searchStatus.dataset.state = type;
+		}
+
+		function setSelectedPoint(lat, lon, popupText) {
+			selectedLatInput.value = Number(lat).toFixed(6);
+			selectedLonInput.value = Number(lon).toFixed(6);
+
+			if (selectedMarker) {
+				selectedMarker.setLatLng([lat, lon]);
+			} else {
+				selectedMarker = L.marker([lat, lon], { title: "Selected farm point" }).addTo(map);
+			}
+
+			selectedMarker.bindPopup(popupText || "Selected farm location").openPopup();
+		}
+
+		map.on("click", (event) => {
+			const { lat, lng } = event.latlng;
+			setSelectedPoint(lat, lng, "Selected point for groundwater analysis");
+			setStatus("Farm point selected. You can now run analysis.", "success");
+		});
+
+		async function geocodePlace(query) {
+			const endpoint = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+			const response = await fetch(endpoint, {
+				headers: {
+					"Accept": "application/json",
+				}
+			});
+
+			if (!response.ok) {
+				throw new Error("Geocoding service is unavailable right now.");
+			}
+
+			const results = await response.json();
+			if (!results.length) {
+				throw new Error("No location found. Try a more specific place name.");
+			}
+
+			return results[0];
+		}
+
+		searchBtn.addEventListener("click", async () => {
+			const query = searchInput.value.trim();
+			if (!query) {
+				setStatus("Enter a village or farm area to search.", "warning");
+				return;
+			}
+
+			setStatus("Searching location...", "info");
+
+			try {
+				const result = await geocodePlace(query);
+				const lat = Number(result.lat);
+				const lon = Number(result.lon);
+
+				map.flyTo([lat, lon], 14, { duration: 1.1 });
+
+				if (searchMarker) {
+					searchMarker.setLatLng([lat, lon]);
+				} else {
+					searchMarker = L.circleMarker([lat, lon], {
+						radius: 7,
+						color: "#1f7a8c",
+						fillColor: "#8be9fd",
+						fillOpacity: 0.7,
+					}).addTo(map);
+				}
+
+				searchMarker.bindPopup("Search result center. Click exact farm point for analysis.");
+				setStatus("Search complete. Now click exact farm point on map.", "success");
+			} catch (error) {
+				setStatus(error.message || "Search failed. Please try again.", "error");
+			}
+		});
+
+		myLocationBtn.addEventListener("click", () => {
+			if (!navigator.geolocation) {
+				setStatus("Geolocation is not supported in this browser.", "error");
+				return;
+			}
+
+			setStatus("Locating your device...", "info");
+			navigator.geolocation.getCurrentPosition(
+				(position) => {
+					const lat = position.coords.latitude;
+					const lon = position.coords.longitude;
+					map.flyTo([lat, lon], 16, { duration: 1.1 });
+					setSelectedPoint(lat, lon, "Using your current device location");
+					setStatus("Current location set. You can adjust by clicking any point.", "success");
+				},
+				(error) => {
+					setStatus(error.message || "Unable to fetch your location.", "error");
+				},
+				{
+					enableHighAccuracy: true,
+					timeout: 10000,
+					maximumAge: 0,
+				}
+			);
+		});
+
+		analysisForm.addEventListener("submit", (event) => {
+			if (!selectedLatInput.value || !selectedLonInput.value) {
+				event.preventDefault();
+				setStatus("Please click on the map to select the exact farm location.", "warning");
+			}
+		});
+	</script>
+</body>
+</html>
